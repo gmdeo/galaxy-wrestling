@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galaxy Wrestling</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #07091c;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+      color: #fff;
+      user-select: none;
+    }
+
+    #canvas {
+      display: block;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* HUD: top bar fixed overlay */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: rgba(7, 9, 28, 0.82);
+      border-bottom: 1px solid #1c2560;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .hud-side {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 220px;
+    }
+
+    .hud-side.right { flex-direction: row-reverse; }
+
+    .hud-name {
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .hud-name.hero { color: #35BDD2; }
+    .hud-name.opp  { color: #E4572E; }
+
+    .hp-bar-wrap {
+      width: 130px;
+      height: 7px;
+      background: #3a0a20;
+      border: 1px solid #1c2560;
+    }
+
+    .hp-bar-fill {
+      height: 100%;
+      transition: width 0.12s linear;
+    }
+
+    .hp-bar-fill.hero { background: #3FBF5F; }
+    .hp-bar-fill.opp  { background: #E4572E; }
+
+    .hud-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    #score {
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 0.15em;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #control-ind {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      padding: 1px 6px;
+      border: 1px solid currentColor;
+    }
+
+    /* Note track: bottom overlay */
+    #track {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 80px;
+      background: rgba(0, 0, 0, 0.9);
+      border-top: 1px solid #1c2560;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #track-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Title screen */
+    #title {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 9, 28, 0.95);
+      z-index: 100;
+    }
+
+    #title h1 {
+      font-size: clamp(28px, 6vw, 64px);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: #35BDD2;
+      text-shadow: 0 0 24px #35BDD2, 0 0 60px #D10A7A;
+      margin-bottom: 8px;
+    }
+
+    #title .subtitle {
+      font-size: clamp(11px, 2vw, 16px);
+      color: #F02E98;
+      letter-spacing: 0.2em;
+      margin-bottom: 32px;
+    }
+
+    #title .keys {
+      font-size: 13px;
+      color: #8a91b8;
+      text-align: center;
+      line-height: 2;
+    }
+
+    #title .keys span {
+      display: inline-block;
+      background: #1c2560;
+      border: 1px solid #35BDD2;
+      border-radius: 3px;
+      padding: 1px 6px;
+      color: #35BDD2;
+      font-size: 12px;
+      margin: 0 2px;
+    }
+
+    #start-btn {
+      margin-top: 24px;
+      padding: 12px 40px;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 0.2em;
+      font-family: inherit;
+      background: #D10A7A;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px #D10A7A88;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+
+    #start-btn:hover { background: #F02E98; box-shadow: 0 0 32px #F02E98bb; }
+    #start-btn:focus-visible { outline: 2px solid #35BDD2; outline-offset: 3px; }
+
+    /* Move name banner */
+    #move-banner {
+      position: fixed;
+      top: 56px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 0.18em;
+      color: #FFD84A;
+      text-shadow: 0 0 12px #FFD84A;
+      pointer-events: none;
+      z-index: 11;
+      opacity: 0;
+      transition: opacity 0.1s;
+      white-space: nowrap;
+    }
+
+    /* Win/lose overlay */
+    #result {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 9, 28, 0.88);
+      z-index: 200;
+    }
+
+    #result h2 {
+      font-size: clamp(32px, 8vw, 80px);
+      font-weight: 900;
+      letter-spacing: 0.1em;
+    }
+
+    #result.win h2 { color: #35BDD2; text-shadow: 0 0 30px #35BDD2; }
+    #result.lose h2 { color: #F02E98; text-shadow: 0 0 30px #F02E98; }
+
+    #result .final-score {
+      margin-top: 12px;
+      font-size: 18px;
+      color: #8a91b8;
+      letter-spacing: 0.1em;
+    }
+
+    #result button {
+      margin-top: 28px;
+      padding: 10px 32px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0.15em;
+      background: #1c2560;
+      color: #35BDD2;
+      border: 1px solid #35BDD2;
+      cursor: pointer;
+    }
+
+    #result button:hover { background: #2a3a80; }
+    #result button:focus-visible { outline: 2px solid #35BDD2; outline-offset: 3px; }
+  </style>
+</head>
+<body>
+
+  <canvas id="canvas"></canvas>
+
+  <!-- HUD overlay -->
+  <div id="hud" role="status" aria-live="polite" aria-label="Match status">
+    <div class="hud-side left">
+      <span class="hud-name hero" id="hero-name">$WRESTLER</span>
+      <div class="hp-bar-wrap" role="progressbar" aria-label="Hero HP" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+        <div class="hp-bar-fill hero" id="hero-hp" style="width:100%"></div>
+      </div>
+    </div>
+    <div class="hud-center">
+      <div id="score">0000000</div>
+      <div id="control-ind" style="color:#35BDD2">ATTACK</div>
+    </div>
+    <div class="hud-side right">
+      <span class="hud-name opp" id="opp-name">$RUGPULL</span>
+      <div class="hp-bar-wrap" role="progressbar" aria-label="Opponent HP" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+        <div class="hp-bar-fill opp" id="opp-hp" style="width:100%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Move name banner -->
+  <div id="move-banner" aria-live="assertive"></div>
+
+  <!-- Note track -->
+  <div id="track" role="region" aria-label="Note track">
+    <canvas id="track-canvas"></canvas>
+  </div>
+
+  <!-- Title screen -->
+  <div id="title" role="dialog" aria-modal="true" aria-labelledby="title-heading">
+    <h1 id="title-heading">GALAXY WRESTLING</h1>
+    <p class="subtitle">RHYTHM WRESTLING — 3D EDITION</p>
+    <div class="keys">
+      Arrow keys: <span>←</span><span>↓</span><span>↑</span><span>→</span> hit notes &nbsp;|&nbsp;
+      Any key: kick out<br>
+      Type finisher name during SPECIAL move
+    </div>
+    <button id="start-btn" aria-label="Start match">START MATCH</button>
+  </div>
+
+  <!-- Result screen -->
+  <div id="result" role="dialog" aria-modal="true" aria-labelledby="result-heading">
+    <h2 id="result-heading">YOU WIN!</h2>
+    <div class="final-score">SCORE: <span id="final-score-val">0000000</span></div>
+    <button onclick="location.reload()">PLAY AGAIN</button>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
