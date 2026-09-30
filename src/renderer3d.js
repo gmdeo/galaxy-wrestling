@@ -7,7 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 export class CineCam {
   constructor(camera) {
     this.camera = camera;
-    this.basePos = new THREE.Vector3(0, 4.2, 11);
+    this.basePos = new THREE.Vector3(0, 3.6, 8.6);
     this.shake = 0;
     this.dolly = 0; // 0=normal, 1=zoomed in
     this.dollyT = 0;
@@ -36,7 +36,7 @@ export class CineCam {
       this.basePos.y + sy - zoom * 0.5,
       this.basePos.z + sz - zoom
     );
-    this.camera.lookAt(0, 2.2, 0);
+    this.camera.lookAt(0, 2.15, 0);
   }
 }
 
@@ -45,45 +45,45 @@ export function createRenderer(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.9;
+  renderer.toneMappingExposure = 0.78;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x07091c, 0.012);
-  scene.background = new THREE.Color(0x07091c);
+  scene.fog = new THREE.FogExp2(0x05070f, 0.010);
+  scene.background = new THREE.Color(0x05070f);
 
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-  camera.position.set(0, 4.2, 11);
-  camera.lookAt(0, 1, 0);
+  const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 200);
+  camera.position.set(0, 6.0, 14.2);
+  camera.lookAt(0, 2.15, 0);
 
   // Lighting
-  const ambient = new THREE.AmbientLight(0x8890c0, 0.45);
-  scene.add(new THREE.HemisphereLight(0xbfd8ff, 0x301040, 0.8));
+  const ambient = new THREE.AmbientLight(0x7a83b4, 0.26);
+  scene.add(new THREE.HemisphereLight(0xa8c4ee, 0x2a0e38, 0.30));
   scene.add(ambient);
 
   // Key light: warm spot above-front
-  const key = new THREE.SpotLight(0xffe8c0, 120, 60, Math.PI / 4, 0.7, 1.5);
-  key.position.set(0, 18, 9);
+  const key = new THREE.SpotLight(0xfff2e2, 78, 40, Math.PI / 2.4, 0.85, 1.25);
+  key.position.set(0, 15, 7);
   key.castShadow = true;
   key.shadow.mapSize.setScalar(1024);
   key.shadow.bias = -0.001;
-  key.target.position.set(0, 0, 0);
+  key.target.position.set(0, 1.2, 0);
   scene.add(key, key.target);
 
   // Back rim so silhouettes separate from the dark mat
-  const back = new THREE.DirectionalLight(0xff4fb0, 1.6);
+  const back = new THREE.DirectionalLight(0xff4fb0, 0.62);
   back.position.set(0, 6, -10);
   scene.add(back);
 
   // Fill light: cool opposite
-  const fill = new THREE.DirectionalLight(0x8090d0, 1.2);
+  const fill = new THREE.DirectionalLight(0x8090d0, 0.55);
   fill.position.set(10, 12, -8);
   scene.add(fill);
 
   // Rim light: cyan neon behind ring
-  const rim = new THREE.SpotLight(0x00e5ff, 2.5, 50, Math.PI / 4, 0.5, 2);
+  const rim = new THREE.SpotLight(0x00e5ff, 1.2, 50, Math.PI / 4, 0.6, 2);
   rim.position.set(0, 6, -14);
   rim.target.position.set(0, 2, 0);
   scene.add(rim, rim.target);
@@ -92,7 +92,7 @@ export function createRenderer(canvas) {
   const gelColors = [0xff00aa, 0x00ccff, 0xff6600, 0x00ff88, 0xaa00ff, 0xffee00];
   for (let i = 0; i < 6; i++) {
     const angle = (i / 6) * Math.PI * 2;
-    const g = new THREE.SpotLight(gelColors[i], 1.2, 40, Math.PI / 8, 0.6, 2);
+    const g = new THREE.SpotLight(gelColors[i], 0.34, 40, Math.PI / 7, 0.8, 2);
     g.position.set(Math.cos(angle) * 14, 18, Math.sin(angle) * 10);
     g.target.position.set(0, 0, 0);
     scene.add(g, g.target);
@@ -105,9 +105,9 @@ export function createRenderer(canvas) {
 
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.45, // strength
-    0.4,  // radius
-    0.92  // threshold: only neon and flashes bloom
+    0.22, // strength
+    0.32, // radius
+    0.97  // threshold: only true neon and impact flashes bloom
   );
   composer.addPass(bloom);
 

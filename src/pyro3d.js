@@ -73,7 +73,7 @@ export class Pyro3D {
         side: THREE.FrontSide,
       });
       this._flashMesh = new THREE.Mesh(geo, mat);
-      this._flashMesh.position.set(0, 5, 21);
+      this._flashMesh.position.set(0, 5, 9);
       this._flashMesh.renderOrder = 999;
       this.scene.add(this._flashMesh);
     }
@@ -121,7 +121,7 @@ export class Pyro3D {
     if (this._flashMesh && this._flashT >= 0) {
       const elapsed = now - this._flashT;
       const fade = Math.max(0, 1 - elapsed / this._flashDur);
-      this._flashMesh.material.opacity = fade * 0.55;
+      this._flashMesh.material.opacity = fade * 0.18;
       if (fade <= 0) this._flashT = -1;
     }
   }

@@ -1,8 +1,7 @@
 // Galaxy Wrestling: three.js stage over the original match / stage / audio logic.
 import { createRenderer } from './renderer3d.js';
 import { buildRing } from './ring3d.js';
-import { Wrestler3D } from './wrestlers3d.js';
-import { buildCrowd } from './crowd3d.js';
+import { Wrestler3D } from './wrestlers3d.ts';
 import { Pyro3D } from './pyro3d.js';
 import { Match, OPPONENTS, LEAD, TYPE_LANE } from './match.js';
 import { Stage } from './stage.js';
@@ -11,14 +10,14 @@ import { HERO_PALETTE, RUGPULL_PALETTE, UI } from './palette.js';
 
 // 2D stage space (320 px wide, centre 160) -> 3D ring units.
 const PX = 0.075;
+const MAT_H = 1.1;                       // canvas height in ring3d.js
 const to3dX = (x) => (x - 160) * PX;
-const to3dY = (y) => Math.max(0.2, (118 - y) * PX);
+const to3dY = (y) => MAT_H + Math.max(0, (118 - y) * PX);
 
 // ---------- Scene ----------
 const canvas = document.getElementById('canvas');
 const { scene, composer, bloom, cineCam } = createRenderer(canvas);
 buildRing(scene);
-const crowd = buildCrowd(scene);
 const hero3d = new Wrestler3D(HERO_PALETTE, scene);
 const opp3d = new Wrestler3D(RUGPULL_PALETTE, scene);
 const pyro3d = new Pyro3D(scene);
@@ -47,7 +46,8 @@ function showBanner(text, dur = 1.4) {
 
 // ---------- Game state ----------
 const game = { screen: 'title', match: null, stage: null, resultAt: 0, pressed: [0, 0, 0, 0, 0], judge: null };
-window.WG = { game, audio };
+window.WG = {
+  three: { scene, cineCam, composer, bloom, hero3d, opp3d }, game, audio };
 
 function startFight() {
   audio.init(); audio.resume();
@@ -126,9 +126,13 @@ function handleEvents(now) {
 // ---------- Wrestler sync ----------
 function syncActor(actor, w3d) {
   const pose = actor.down ? 'down' : (actor.pose || 'idle');
-  w3d.applyPose(pose, 1, 0);
-  w3d.root.position.set(to3dX(actor.x), (actor.lift || 0) * PX, 0);
-  w3d.root.rotation.set(0, actor.facing > 0 ? 0 : Math.PI, ((actor.rot || 0) * Math.PI) / 180);
+  if (pose === 'down') w3d.applyPose('down', actor.facing > 0 ? 1 : -1, actor.lift || 0);
+  else {
+    w3d.resetBody();
+    w3d.applyPose(pose, actor.facing > 0 ? 1 : -1, actor.lift || 0);
+    if (actor.rot) w3d.setRoll(actor.rot);
+  }
+  w3d.root.position.set(to3dX(actor.x), MAT_H + 0.11, 0);
   w3d.flash(actor.flash > 0);
 }
 
@@ -239,15 +243,16 @@ function frame(ms) {
     }
   } else {
     // Idle attract mode: wrestlers circle in their corners.
+    hero3d.resetBody(); opp3d.resetBody();
     hero3d.applyPose(Math.floor(now * 2) % 2 ? 'idle' : 'idle2', 1, 0);
-    opp3d.applyPose(Math.floor(now * 2 + 1) % 2 ? 'idle' : 'idle2', 1, 0);
-    hero3d.root.position.set(-2.4, 0, 0); hero3d.root.rotation.set(0, 0, 0);
-    opp3d.root.position.set(2.4, 0, 0); opp3d.root.rotation.set(0, Math.PI, 0);
+    opp3d.applyPose(Math.floor(now * 2 + 1) % 2 ? 'idle' : 'idle2', -1, 0);
+    hero3d.root.position.set(-2.4, MAT_H + 0.11, 0);
+    opp3d.root.position.set(2.4, MAT_H + 0.11, 0);
     drawTrack(now, 0);
   }
   if (bannerUntil && now > bannerUntil) { elBanner.style.opacity = '0'; bannerUntil = 0; }
   bloom.strength += (0.7 - bloom.strength) * dtReal * 0.5;
-  if (crowd && crowd.children) crowd.position.y = Math.abs(Math.sin(now * 5)) * 0.05 * (game.screen === 'fight' ? 1 : 0.3);
+  // crowd bowl is static geometry; nothing to bob
   pyro3d.update(dtReal, now);
   cineCam.update(dtReal);
   composer.render();

@@ -1,0 +1,57 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>rig</title>
+<style>html,body{margin:0;height:100%;background:#0a0e1e;overflow:hidden}canvas{display:block;width:100vw;height:100vh}</style>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { Wrestler3D } from '/src/wrestlers3d.ts';
+import { HERO_PALETTE, RUGPULL_PALETTE } from '/src/palette.js';
+
+const r = new THREE.WebGLRenderer({ antialias: true });
+r.setSize(innerWidth, innerHeight);
+r.setPixelRatio(Math.min(devicePixelRatio, 2));
+r.outputColorSpace = THREE.SRGBColorSpace;
+r.toneMapping = THREE.ACESFilmicToneMapping;
+r.toneMappingExposure = 0.95;
+r.shadowMap.enabled = true;
+document.body.appendChild(r.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0e1e);
+scene.add(new THREE.HemisphereLight(0xbfd8ff, 0x201030, 1.1));
+const d = new THREE.DirectionalLight(0xffffff, 1.6); d.position.set(3, 6, 6); scene.add(d);
+const d2 = new THREE.DirectionalLight(0xff6bd6, 0.7); d2.position.set(-4, 3, -5); scene.add(d2);
+const grid = new THREE.GridHelper(20, 20, 0x334466, 0x223355); scene.add(grid);
+
+const cam = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+const Q=new URLSearchParams(location.search); const zoom=Q.get('z')?+Q.get('z'):10.2; cam.position.set(0, 1.4, zoom); cam.lookAt(Q.get('x')?+Q.get('x'):0, 1.2, 0);
+
+const hero = new Wrestler3D(HERO_PALETTE, scene);
+const opp  = new Wrestler3D(RUGPULL_PALETTE, scene);
+hero.root.position.set(-2.6, 0, 0);
+opp.root.position.set(2.6, 0, 0);
+
+window.__rig = { hero, opp, scene, cam, THREE };
+const POSES = ['idle', 'strike', 'chop', 'block', 'grab', 'lift', 'hurt', 'run', 'kneel', 'down'];
+let i = Q.get('p') ? POSES.indexOf(Q.get('p')) : 0, t0 = performance.now();
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { i = (i + 1) % POSES.length; }
+  if (e.code === 'KeyF') { hero.resetBody(); opp.resetBody(); }
+});
+const hud = document.createElement('div');
+hud.style.cssText = 'position:fixed;left:12px;top:10px;color:#8fd3e0;font:14px monospace;z-index:9';
+hud.textContent = 'SPACE = cycle pose';
+document.body.appendChild(hud);
+
+function frame(now) {
+  const p = POSES[i];
+  hud.textContent = `pose: ${p}   (SPACE to cycle)`;
+  hero.resetBody(); opp.resetBody();
+  hero.applyPose(p === 'down' ? 'down' : p, 1, 0);
+  opp.applyPose(p === 'down' ? 'down' : p, -1, 0);
+  r.render(scene, cam);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body></html>
