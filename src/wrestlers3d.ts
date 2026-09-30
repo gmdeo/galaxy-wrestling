@@ -243,11 +243,16 @@ function makeContactShadow(): THREE.Mesh {
     shadowTex = new THREE.CanvasTexture(c);
   }
   const m = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.7, 1.0),
-    new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }),
+    new THREE.PlaneGeometry(1.5, 0.95),
+    new THREE.MeshBasicMaterial({
+      map: shadowTex, transparent: true, depthWrite: false, depthTest: true,
+      blending: THREE.NormalBlending, opacity: 0.9,
+    }),
   );
   m.rotation.x = -Math.PI / 2;
-  m.position.y = -0.095;          // root sits 0.11 above the canvas
+  // The ring canvas top is exactly the root's y, so the blob must sit a hair
+  // ABOVE it — anything negative is buried inside the mat box and never renders.
+  m.position.y = 0.012;
   m.renderOrder = 1;
   return m;
 }

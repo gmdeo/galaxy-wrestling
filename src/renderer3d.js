@@ -3,6 +3,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 
 export class CineCam {
   constructor(camera) {
@@ -45,7 +48,7 @@ export function createRenderer(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.78;
+  renderer.toneMappingExposure = 0.86;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -54,12 +57,23 @@ export function createRenderer(canvas) {
   scene.fog = new THREE.FogExp2(0x05070f, 0.010);
   scene.background = new THREE.Color(0x05070f);
 
+  // Image-based lighting from a neon stage HDRI (Poly Haven, CC0). Gives fabric
+  // sheen and boot highlights that analytic lights alone cannot produce.
+  let envMap = null;
+  new HDRLoader().load(`${import.meta.env.BASE_URL}hdr/neon.hdr`, (hdr) => {
+    hdr.mapping = THREE.EquirectangularReflectionMapping;
+    envMap = new THREE.PMREMGenerator(renderer).fromEquirectangular(hdr).texture;
+    scene.environment = envMap;
+    scene.environmentIntensity = 0.42;   // arcade look: present, not dominant
+    hdr.dispose();
+  });
+
   const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 200);
   camera.position.set(0, 6.0, 14.2);
   camera.lookAt(0, 2.15, 0);
 
   // Lighting
-  const ambient = new THREE.AmbientLight(0x7a83b4, 0.26);
+  const ambient = new THREE.AmbientLight(0x7a83b4, 0.16);
   scene.add(new THREE.HemisphereLight(0xa8c4ee, 0x2a0e38, 0.30));
   scene.add(ambient);
 
@@ -98,10 +112,23 @@ export function createRenderer(canvas) {
     scene.add(g, g.target);
   }
 
-  // Post-processing
+  // Post-processing. Order matters: occlusion has to be baked into the image
+  // BEFORE bloom spreads light around, and antialiasing must run on the final
+  // resolved image, not mid-chain.
   const composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
+
+  // GTAO: darkens armpits, between the thighs, under the chin and where boots
+  // meet the canvas. Ambient occlusion is most of what stops a cheap render
+  // looking like plastic.
+  const gtao = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight);
+  gtao.output = GTAOPass.OUTPUT.Default;
+  gtao.updateGtaoMaterial({
+    radius: 0.5, distanceExponent: 1.1, thickness: 0.5, scale: 1.0,
+    samples: 16, screenSpaceRadius: false,
+  });
+  composer.addPass(gtao);
 
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -111,10 +138,18 @@ export function createRenderer(canvas) {
   );
   composer.addPass(bloom);
 
+  // Composer rendering disables the canvas MSAA, so add SMAA back explicitly.
+  const smaa = new SMAAPass();
+  composer.addPass(smaa);
+
   const output = new OutputPass();
   composer.addPass(output);
 
   const cineCam = new CineCam(camera);
+
+  // Resize must also resize the new passes.
+  const _onResize = () => { smaa.setSize(window.innerWidth, window.innerHeight); gtao.setSize(window.innerWidth, window.innerHeight); };
+  window.addEventListener('resize', _onResize);
 
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -123,5 +158,5 @@ export function createRenderer(canvas) {
     composer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { renderer, scene, camera, composer, bloom, cineCam };
+  return { renderer, scene, camera, composer, bloom, cineCam, envMapRef: () => envMap };
 }
