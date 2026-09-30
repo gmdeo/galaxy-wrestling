@@ -10,17 +10,18 @@ import { HERO_PALETTE, RUGPULL_PALETTE, UI } from './palette.js';
 
 // 2D stage space (320 px wide, centre 160) -> 3D ring units.
 const PX = 0.075;
-const MAT_H = 1.1;                       // canvas height in ring3d.js
+const MAT_H = 1.11;                      // canvas TOP surface (ring3d MAT_H 1.0 + half the 0.22 box)
 const to3dX = (x) => (x - 160) * PX;
 const to3dY = (y) => MAT_H + Math.max(0, (118 - y) * PX);
 
 // ---------- Scene ----------
 const canvas = document.getElementById('canvas');
-const { scene, composer, bloom, cineCam } = createRenderer(canvas);
+const { renderer, camera, scene, composer, bloom, cineCam } = createRenderer(canvas);
 buildRing(scene);
 const hero3d = new Wrestler3D(HERO_PALETTE, scene);
 const opp3d = new Wrestler3D(RUGPULL_PALETTE, scene);
 const pyro3d = new Pyro3D(scene);
+pyro3d.attachFlash(camera);
 const audio = new Audio();
 
 // Adapter: stage.js speaks 2D pyro (burst/ring/requestFlash in pixels). Route it into 3D.
@@ -132,7 +133,7 @@ function syncActor(actor, w3d) {
     w3d.applyPose(pose, actor.facing > 0 ? 1 : -1, actor.lift || 0);
     if (actor.rot) w3d.setRoll(actor.rot);
   }
-  w3d.root.position.set(to3dX(actor.x), MAT_H + 0.11, 0);
+  w3d.root.position.set(to3dX(actor.x), MAT_H, 0);
   w3d.flash(actor.flash > 0);
 }
 
@@ -408,16 +409,18 @@ function frame(ms) {
     hero3d.resetBody(); opp3d.resetBody();
     hero3d.applyPose(Math.floor(now * 2) % 2 ? 'idle' : 'idle2', 1, 0);
     opp3d.applyPose(Math.floor(now * 2 + 1) % 2 ? 'idle' : 'idle2', -1, 0);
-    hero3d.root.position.set(-2.4, MAT_H + 0.11, 0);
-    opp3d.root.position.set(2.4, MAT_H + 0.11, 0);
+    hero3d.root.position.set(-2.4, MAT_H, 0);
+    opp3d.root.position.set(2.4, MAT_H, 0);
     drawTrack(now, 0);
   }
   if (bannerUntil && now > bannerUntil) { elBanner.style.opacity = '0'; bannerUntil = 0; }
-  bloom.strength += (0.7 - bloom.strength) * dtReal * 0.5;
+  // Event spikes (predator/win) decay back to the tuned base from renderer3d.
+  bloom.strength += (0.22 - bloom.strength) * Math.min(1, dtReal * 1.5);
   // crowd bowl is static geometry; nothing to bob
   pyro3d.update(dtReal, now);
   cineCam.update(dtReal);
   composer.render();
+  pyro3d.renderFlash(renderer);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

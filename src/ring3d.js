@@ -394,7 +394,7 @@ export function buildRing(scene) {
     // The texture is 1024x512 covering a full revolution: repeat it enough times
     // that each figure stays roughly square instead of smearing into a streak.
     const circ = 2 * Math.PI * rIn;
-    const rep = Math.max(1, Math.round(circ / 0.62 / 8));
+    const rep = Math.max(1, Math.round(circ / risePer / 8));
     const tex = (t % 2 ? crowdTexB : crowdTex).clone();
     tex.needsUpdate = true;
     tex.wrapS = THREE.RepeatWrapping;

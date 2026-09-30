@@ -308,7 +308,11 @@ export class Wrestler3D {
         m.castShadow = true;
         m.receiveShadow = true;
         m.frustumCulled = false;
-        m.material = o.name.startsWith('Face') ? eyeMat : material;
+        // Match on the runtime name AND the geometry name: GLTFLoader stores the
+        // mesh definition name on the geometry, and a name test that misses means
+        // every mesh silently shares the costume material.
+        const nm = `${o.name} ${(o as THREE.Mesh).geometry?.name ?? ''}`;
+        m.material = /Eye/i.test(nm) || /Face/i.test(nm) ? eyeMat : material;
       }
       if ((o as THREE.Bone).isBone) this.bones[o.name] = o as THREE.Bone;
     });
@@ -350,7 +354,7 @@ export class Wrestler3D {
       for (const f of ['index', 'middle', 'ring', 'pinky']) {
         for (const n of ['01', '02', '03']) {
           const b = this.bones[`${f}_${n}_${s}`];
-          if (b) b.rotateZ(s === 'l' ? -1.25 : -1.25);
+          if (b) b.rotateZ(s === 'l' ? -1.25 : 1.25);
         }
       }
       const t = this.bones[`thumb_02_${s}`];
